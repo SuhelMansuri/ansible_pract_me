@@ -1,0 +1,273 @@
+==> First we need to create 3 different instance using Amazon Linux ec2 instance
+	-> Log In Amazon AWS account
+	-> click on EC2 
+	-> launch instance 
+	-> select Amazon Linux 2 AMI
+	-> select t2 micro in instance type for free
+	-> select 3 num. of instances in Inst. Detail
+	-> Advance detail USER DATA
+		#!/bin/bash
+		sudo su
+		yum update -y
+	-> add tag
+	-> Security group SSH and HTTP
+	-> create key pair 
+	-> Launch instance and give diff. Names
+	-> Ansi. Server, Node1, Node2
+	-> Start 3 instance using key pair 
+	-> Now need to start server ansible instance
+	-> Sudo su for root user
+	-> wget for download EPL package for linuxI(wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm) 
+	-> for install that package (yum install epel-release-latest-7)
+	-> for update this (yum update -y)
+	-> other requires things for install(yum install git python python-level python-pip openssl ansible -y)
+	-> for Default ansible hosts
+	-> under Ex 1 create
+		 [demo]
+		paste Private IPv4 for node1
+		paste Private IPv4 for node2
+			save file using :wq
+	-> vi /etc/ansible/ansible.cfg(open config file)
+	-> uncomment Inventory = /etc/ansible/hosts
+	-> uncomment sudo_user = root
+	-> 
+
+	-> adduser ansible
+	-> passwd ansible technical
+
+	-> su - ansible
+	-> touch file1
+	-> yum install httpd -y
+	-> sudo yum install httpd -y
+	-> password - technical
+	-> exit
+	-> visudo 
+	 - inside press i
+	 - Allow root to run any commands anywhere 
+	 - under root ansible ALL=(ALL) NOPASSWD: ALL
+	 
+
+	-> su - ansible
+	-> sudo yum install httpd -y(now it is good)
+	
+	-> ssh (ipv4 - node1) - permission denied
+	-> exit
+	-> vi /etc/ssh/sshd_config (enter i)
+	-> uncomment (#-remove)  PermitRootLogin
+	-> uncomment PasswordAuthentication yes
+	-> comment PasswordAuthentication no
+
+	-> service sshd restart
+
+	-> su - ansible
+
+	-> ssh node1 ipv4 
+	-> password technical(using server inside node1)	
+	-> if we create touch file1 file2
+	-> it will show all the changes in node1
+	-> exit and now we need to take access of node2
+	-> ssh node2 ipv4 address
+	-> touch node2 we can access remotly using server
+	-> it will ask password every time we access node
+	-> exit
+	-> ssh-keygen
+	-> ls -a (if we see .ssh file that means file have key)
+	-> cd .ssh/
+	-> ls
+	-> ssh-copy-id ansible@node1privateIp
+	-> password technical(final password)
+	(for node2)
+	-> ssh-copy-id ansible@node2privateIp
+        -> password technical(final password)
+	-> now we can try with both node ssh ipv4
+	
+	-> exit
+	-> ansible all --list-hosts - for all
+	-> ansible demo --list-hosts - for group demo
+	-> ansible demo[0] --list-hosts - for 1st node
+	-> ansible demo[1] --list-hosts - for 2nd
+	-> ansible demo[-1] --list-hosts - for last
+	-> ansible demo[1:0] --list-hosts - for range
+	
+	AD HOC Commands
+	--------------
+	-> ansible all -a "ls" Command - for see lab the files in every node
+	-> ansible all -a "touch mansurifile" - to create file in all the nodes from server
+	-> ansible demo -a "ls -al" - to check details information of files and directories
+	-> ansible demo -a "sudo yum install httpd -y". - can install any package from all nodes
+	-> ansible demo -b(become use instead of sudo)a "yum remove httpd -y" - can remove package
+ from all nodes
+
+	Ansible modules(default predefine commands)
+	--------------(install - Present, uninstall- absent, update - Latest)
+	-> ansible demo -b -m(module) yum(module name) -a "pkg=httpd state=present" - install package named httpd
+	-> ansible demo -b -m yum -a "pkg=httpd state=latest" - update package named httpd
+	-> ansible demo -b -m yum -a "pkg=httpd state=absent" - remove package named httpd
+	-> ansible demo -b -m service -a "name=httpd state=started" - start service
+	-> ansible demo[-1] -b -m copy -a "src=copiedfromserver dest=/tmp" - to copy file from source(src) to destination(dest) need to provide in command
+	-> ansible demo -m setup - check all the details of nodes
+	-> ansible demo -m setup -a "filter=*ipv4*" - check all the details related to IPV4(address related information) 
+	
+	Ansible Playbook, Variables, Handlers & Loops
+	--------------------------------------------
+	-> (first of all we need to come to our Ansible server)
+	-> Now create one Playbook
+	-> vi target.yml
+
+	   --- # My First Testing YAML Playbook
+	   - hosts: demo
+             user: ansible
+             become: yes
+             connection: ssh
+             gather_facts: yes
+
+	-> esc -> :wq(save and exit)
+	now run playbook -: ansible-playbook target.yml
+
+	-> Now create one more Playbook in ansible server
+	-> vi task.yml
+
+	   --- # My Second Testing YAML Playbook
+	   - hosts: demo
+             user: ansible
+             become: yes
+             connection: ssh
+             tasks:
+		- name: Install HTTPD on centos 7
+          	  action: yum name=httpd state=installed 
+
+	-> esc -> :wq(save and exit)
+	(before execute playbook we need to remove httpd from both the node)
+	-> ansible-playbook task.yml
+
+	Variable
+	--------
+  -> vi variable.yml
+	
+--- # My Variable playbook for testing
+- hosts: demo
+  user: ansible
+  become: yes
+  connection: ssh
+  vars:
+    pkgname: httpd
+  tasks:
+    - name: install HTTPD server on ventos 7
+      action: yum name='{{pkgname}}' state=installed
+
+-> esc -> :wq(save and exit)
+	(before execute playbook we need to remove httpd from both the node)
+	
+	-> ansible-playbook variable.yml
+
+	Handler & DRYRUN
+	----------------
+	-> vi handlers.yml
+
+--- # My palybook for  Handlers
+- hosts: demo
+  user: ansible
+  become: yes
+  connection: ssh
+  tasks:
+        - name: install httpd server on centos
+          action: yum name=httpd state=installed
+          notify: restart httpd
+  handlers:
+          - name: restart httpd
+            action: service name=httpd state=restarted
+
+-> esc -> :wq(save and exit)
+	(before execute playbook we need to remove httpd from both the node)
+	
+	-> ansible-playbook handlers.yml --check(Dry run check error before execute)
+	-> ansible-playbook handlers.yml(Run)
+	
+	Loops
+	-----
+	-> vi loops.yml
+
+--- # MY LOOPS PLAYBOOK
+- hosts: demo
+  user: ansible
+  become: yes
+  connection: ssh
+  tasks:
+        - name: add list of users in my nodes
+          user: name='{{item}}' state=present
+          with_items:
+                     - Suhel
+                     - Sachin_Tendulkar
+                     - Albert_Einstein
+                     - SubhasChandra_Bose
+                     - Vasco_D_Gama
+
+-> esc -> :wq(save and exit)
+	-> ansible-playbook loops.yml(run)
+~                                        
+	
+
+==> Node1
+=========
+	-> sudo su
+	-> adduser ansible
+        -> passwd ansible technical
+	
+	-> su - ansible
+	 -> visudo
+         - inside press i
+         - Allow root to run any commands anywhere
+         - under root ansible ALL=(ALL) NOPASSWD: ALL
+         -
+
+	-> su - ansible
+
+	-> exit
+        -> vi /etc/ssh/sshd_config (enter i)
+        -> uncomment (#-remove)  PermitRootLogin
+        -> uncomment PasswordAuthentication yes
+        -> comment PasswordAuthentication no
+
+	-> service sshd restart
+
+	-> su - ansible
+
+	->  which httpd - to check is httpd(any package) is available?
+	->  sudo service https status - to check status of services
+
+
+	Ansible Playbook
+	----------------
+	-> sudo yum remove httpd -y
+
+ 
+--> Node2
+=========                    
+        -> sudo su
+        -> adduser ansible
+        -> passwd ansible technical
+	
+	-> su - ansible
+	-> visudo
+         - inside press i
+         - Allow root to run any commands anywhere
+         - under root ansible ALL=(ALL) NOPASSWD: ALL
+         -:wq
+	
+	-> su - ansible
+
+	-> exit
+        -> vi /etc/ssh/sshd_config (enter i)
+        -> uncomment (#-remove)  PermitRootLogin             
+        -> uncomment PasswordAuthentication yes
+        -> comment PasswordAuthentication no
+
+	Ansible Playbook
+	----------------
+	-> sudo yum remove httpd -y
+
+	-> service sshd restart
+
+	-> su - ansible
+
+-->

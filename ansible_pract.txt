@@ -204,8 +204,111 @@
 
 -> esc -> :wq(save and exit)
 	-> ansible-playbook loops.yml(run)
-~                                        
-	
+
+
+        Conditions
+	----------
+-> vi condition.yml
+
+--- # Playbook Condition
+- hosts: demo
+  user: ansible
+  become: yes
+  connection: ssh
+  tasks:
+         - name: Install apache server for debian Family
+           command: apt-get -y install apache2
+           when: ansible_os_family == "Debian"
+         - name: install apache server for redhat family
+           command: yum -y install httpd
+           when: ansible_os_family == "RedHat"
+
+-> esc -> :wq(save and exit)
+(before execute playbook we need to remove httpd from both the node(sudo yum remove httpd -y))
+	-> ansible-playbook condition.yml(run)
+
+         Vault
+	------
+	-> To create vault --ansible-vault create vault.yml then it will ask you password two times for confirmation
+--- # Playbook Vault
+- hosts: demo
+  user: ansible
+  become: yes
+  connection: ssh
+  tasks:
+         - name: Install apache server for debian Family
+           command: apt-get -y install apache2
+           when: ansible_os_family == "Debian"
+         - name: install apache server for redhat family
+           command: yum -y install httpd
+           when: ansible_os_family == "RedHat"
+-> esc -> :wq(save and exit)
+
+-> to edit file ansible-vault edit vault.yml
+
+-> to change password ansible-vault rekey vault.yml
+
+-> to encrypt existing file ansible-vault encrypt handlers.yml it will ask for password provide password and re-confirm password
+
+-> now for decrypt existing encrypted file same thing in with decrypt keyword ansible-vault encrypt handlers.yml provide password it will decrypt
+
+
+         Roles
+	------
+-> sudo yum install tree -y (install tree) 
+-> tree (see files and directory in tree formate)
+-> create hierarchy of Directory - mkdir -p playbook/roles/webserver/tasks
+-> tree
+[ansible@ip-172-31-28-221 ~]$ tree
+.
+├── condition.yml
+├── handlers.yml
+├── loops.yml
+├── playbook
+│   └── roles
+│       └── webserver
+│           └── tasks
+├── target.yml
+├── task.yml
+├── variable.yml
+└── vault.yml
+
+4 directories, 7 files
+
+[ansible@ip-172-31-28-221 ~]$ cd playbook/
+[ansible@ip-172-31-28-221 playbook]$ tree
+.
+└── roles
+    └── webserver
+        └── tasks
+-> now Create main.yml
+[ansible@ip-172-31-28-221 playbook]$ touch roles/webserver/tasks/main.yml
+-> create master.yml in current directory 
+[ansible@ip-172-31-28-221 playbook]$ touch master.yml
+[ansible@ip-172-31-28-221 playbook]$ tree
+.
+├── master.yml
+└── roles
+    └── webserver
+        └── tasks
+            └── main.yml
+
+3 directories, 2 files
+
+-> vi master.yml
+
+--- # Master Playbook for Webserver
+- hosts: demo
+  user: ansible
+  become: yes
+  connection: ssh
+  roles:
+        - webserver
+                              
+-> esc -> :wq(save and exit)
+(before execute playbook we need to remove httpd from both the node(sudo yum remove httpd -y))
+	-> ansible-playbook master.yml(run)
+
 
 ==> Node1
 =========
